@@ -1,0 +1,167 @@
+### IMPORT REQUIRED DEPENDENCIES/LIBRARIES ###
+import numpy as np # linear algebra
+import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OneHotEncoder 
+from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.ensemble import RandomForestClassifier
+from sklearn import preprocessing
+import pickle as p
+from sklearn.model_selection import train_test_split
+from sklearn.feature_selection import SelectKBest
+from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import SVC
+from sklearn.naive_bayes import GaussianNB
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import AdaBoostClassifier
+from sklearn.ensemble import GradientBoostingClassifier
+from xgboost import XGBClassifier
+import warnings
+warnings.filterwarnings("ignore")
+from sklearn.metrics import classification_report,ConfusionMatrixDisplay
+
+import os
+for dirname, _, filenames in os.walk('/kaggle/input'):
+    for filename in filenames:
+        print(os.path.join(dirname, filename))
+
+### READING CSV FILE ###
+df = pd.read_csv(filepath_or_buffer='Tree_Data.csv', index_col=['No']).sort_index()
+# OR
+df = pd.read_csv('Tree_Data.csv')
+df
+
+# we want to predict Event, so there's no point in keeping the few rows where we don't have Event data
+df = df.dropna(subset='Event')
+df['Event'] = df['Event'].astype(int)
+
+### EDA ###
+df = df.fillna(0)
+df
+
+df.isna().sum()
+
+df.dtypes
+
+df.head()
+
+df.info()
+
+# The size of 2783 entries is robust for this analysis. There is a missing value that can be dropped in Event.
+df.dropna(subset=['Event'], inplace=True)
+
+df.shape
+
+df.describe()
+
+df.nunique()
+
+### HANDLING OUTLIERS ###
+print(df['Species'].value_counts())
+
+print(df['Soil'].value_counts())
+
+print(df['Light_Cat'].value_counts())
+
+### LOGISTIC REGRESSION ###
+# Scoping the df
+scoped_df = df[['Species', 'Soil', 'Light_Cat', 'Event']]
+
+scoped_df.head(3)
+
+def encode_one_hot():
+    # One hot encoding
+    encoder = OneHotEncoder()
+    categorical_columns = ['Species', 'Soil', 'Light_Cat']
+    encoded_data = encoder.fit_transform(scoped_df[categorical_columns]).toarray()
+    # Create column names
+    encoded_columns = []
+    for i, category in enumerate(encoder.categories_):
+        encoded_columns.extend([f"{categorical_columns[i]}_{cat}" for cat in category])
+    # print(encoded_columns)
+
+    encoded_df = pd.DataFrame(encoded_data, columns=encoded_columns)
+    encoded_df['Event'] = scoped_df['Event'].values
+    return encoded_df
+
+encoded_df = encode_one_hot()
+
+### DATA VISUALIZATION ###
+from plotly.express import bar
+for column in ['Plot', 'Subplot', 'Species', 'Light_ISF', 'Light_Cat', 'Core', 'Soil',
+       'Adult', 'Sterile', 'Conspecific', 'Myco', 'SoilMyco', 'PlantDate', 
+               'Census', 'Time', ]:
+    bar(data_frame=df[[column, 'Event']].groupby(by=[column, 'Event']).size().reset_index(), x=column, y=0, color='Event',
+     color_continuous_scale='bluered').show()
+
+from plotly.express import histogram
+for column in ['AMF', 'EMF', 'Phenolics', 'Lignin', 'NSC',]:
+    histogram(data_frame=df, x=column, color='Event').show()
+
+from plotly.express import scatter
+scatter(data_frame=df, x='Lignin', y='Phenolics', color='Event', color_continuous_scale='bluered')
+
+### MODELING ###
+from sklearn.metrics import f1_score
+f1_score(y_true = df['Event'].values, y_pred=[int(value < 1.2) for value in df['Phenolics'].values])
+
+from sklearn.metrics import confusion_matrix
+confusion_matrix(y_true = df['Event'].values, y_pred=[int(value < 1.2) for value in df['Phenolics'].values])
+
+from sklearn.manifold import TSNE
+tsne = TSNE(random_state=2023, verbose=1, n_components=2)
+columns = ['Phenolics', 'Lignin', 'Time',]
+df[['t0', 't1',]] = tsne.fit_transform(X=df[columns])
+scatter(data_frame=df, x='t0', y='t1', color='Event', color_continuous_scale='bluered', hover_name=df.index)
+
+from imblearn.over_sampling import RandomOverSampler
+sm=RandomOverSampler()
+x,y=sm.fit_resample(x,y)
+
+#splitting to test and train data
+X_train,X_test,y_train,y_test=train_test_split(x,y,test_size=0.1,random_state=4)
+
+knn1=KNeighborsClassifier(algorithm='auto',n_neighbors=9,weights='distance')
+knn1.fit(X_train,y_train)
+y_pred1=knn1.predict(X_test)
+print(classification_report(y_test,y_pred1))
+
+sv=SVC(C=10, gamma =1, kernel= 'rbf')
+sv.fit(X_train,y_train)
+y_pred2=sv.predict(X_test)
+y_pred2
+print(classification_report(y_test,y_pred2))
+
+GaussianNB
+
+nb=GaussianNB()
+nb.fit(X_train,y_train)
+y_pred2=nb.predict(X_test)
+y_pred2
+print(classification_report(y_test,y_pred2))
+
+dt=DecisionTreeClassifier(criterion='entropy',random_state=2,max_depth=10)
+dt.fit(X_train,y_train)
+y_pred3=dt.predict(X_test)
+y_pred3
+print(classification_report(y_test,y_pred3))
+
+rf=RandomForestClassifier(criterion= 'entropy', max_depth= None, min_samples_leaf= 1, min_samples_split= 4,n_estimators= 200)
+rf.fit(X_train,y_train)
+y_pred4=rf.predict(X_test)
+y_pred4
+print(classification_report(y_test,y_pred4))
+
+#xgboost
+xgb=XGBClassifier()
+xgb.fit(X_train,y_train)
+y_pred7=xgb.predict(X_test)
+y_pred7
+print(classification_report(y_test,y_pred7))
